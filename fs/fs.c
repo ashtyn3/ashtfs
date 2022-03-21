@@ -5,44 +5,49 @@
 #include <string.h>
 #include <time.h>
 
-block *find(block *head, unsigned int size, int start) {
-  block *temp = head;
-  for (int i = 0; i < size; i++) {
-    if (temp->start == start) {
-      break;
-    } else {
-      temp = temp->next;
-    }
-  }
+block *find(drive *head, unsigned int size, int start) {
+  int buffer[4000];
+  FILE *ptr = fopen(head->path, "rb");
+  fseek(ptr, start * 1000, SEEK_SET);
+  fread(buffer, sizeof(buffer), 1, ptr);
 
-  return temp;
+  block *blk = malloc(sizeof(block));
+  memcpy(blk->buffer, buffer, sizeof(buffer));
+  (*blk).start = start;
+
+  fclose(ptr);
+  return blk;
 }
 
-block init(unsigned int size) {
-  block *root = (struct block *)malloc(sizeof(struct block));
-  block *head = root;
+drive init(unsigned int size, char *img) {
+  drive disk = {.path = img};
 
-  for (int i = 0; i < size; i++) {
-    rootnext = (struct block *)malloc(sizeof(struct block));
-    root = *root.next;
-  }
+  int buffer[FS_SIZE * 1000];
+  buffer[1] = FS_SIZE * 1000;
+  buffer[2] = 1;
 
-  head->buffer[0] = 0;
-  head->buffer[1] = size;
-  head->buffer[2] = 1;
+  FILE *write_ptr;
+  write_ptr = fopen(disk.path, "wb");
+  fwrite(buffer, sizeof(int), sizeof(buffer), write_ptr);
 
-  return *head;
+  return disk;
 }
 
-void update_header(block *root) {
+void write_block(drive *head, block *f) {
+  FILE *ptr = fopen(head->path, "r+b");
+  fseek(ptr, f->start * 1000, SEEK_SET);
+  fwrite(f->buffer, sizeof(int), sizeof(f->buffer), ptr);
+}
+
+void update_header(drive *root) {
   block *header = find(root, FS_SIZE, 0);
   header->buffer[1] = header->buffer[1] - 1;
+  header->buffer[2] = header->buffer[2] + 1;
 
-  block *updated_head = find(root, FS_SIZE, 0);
-  updated_head->buffer[2] = updated_head->buffer[2] + 1;
+  write_block(root, header);
 }
 
-int alloc_dir(block *root, unsigned int size, int start, const char name[]) {
+int alloc_dir(drive *root, unsigned int size, int start, const char name[]) {
   block *header = find(root, FS_SIZE, 0);
   if (start == 0) {
     print_fatal("Cannot set start offset to 0. Filesystem required block.");
@@ -53,6 +58,7 @@ int alloc_dir(block *root, unsigned int size, int start, const char name[]) {
             header->buffer[2]);
     print_warn(msg);
   }
+
   block *dir_block = find(root, FS_SIZE, start);
   dir_block->buffer[0] = start;
   dir_block->buffer[1] = strlen(name);
@@ -64,6 +70,7 @@ int alloc_dir(block *root, unsigned int size, int start, const char name[]) {
   }
 
   update_header(root);
+  write_block(root, dir_block);
 
   return start;
 }
@@ -104,10 +111,9 @@ int append_dir(block *root, unsigned int size, int dir_start, int item_start,
   return 0;
 }
 
-int make_pointer(block *root) {
-  root = find(root, FS_SIZE, 0);
-  printf("pointer addr: %d\n", root->start);
-  return root->buffer[2];
+int make_pointer(drive *root) {
+  block *head = find(root, FS_SIZE, 0);
+  return head->buffer[2];
 }
 // TODO: implement write disk function.
 //   - Writes dirty blocks to img filesystem.
