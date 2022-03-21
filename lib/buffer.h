@@ -2,6 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-void print_buf(const char buf[]);
+void print_buf(const int buf[]);
 
 char *get_name(const char buf[]);

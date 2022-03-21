@@ -1,10 +1,10 @@
 #include "buffer.h"
 
-void print_buf(const char buf[]) {
+void print_buf(const int buf[]) {
   printf("{");
-  size_t n = sizeof(&buf) / sizeof(buf[0]);
+  size_t n = sizeof(*buf);
   for (int i = 0; i < n; i++) {
-    printf(" %d ", (int)buf[i]);
+    printf(" %d ", buf[i]);
   }
   printf("}\n");
 }
