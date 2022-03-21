@@ -3,18 +3,15 @@
 #include "../lib/buffer.h"
 
 int main() {
-  block root = init(FS_SIZE);
+  drive root = init(FS_SIZE, IMG_PATH);
 
-  unsigned int pointer = make_pointer(&root);
-  alloc_dir(&root, FS_SIZE, pointer, "bob");
+  int loc = make_pointer(&root);
+  alloc_dir(&root, FS_SIZE, loc, "/");
 
-  printf("root after first alloc:\n");
-  print_buf(root.buffer);
+  block *dir = find(&root, FS_SIZE, 1);
+  print_buf(dir->buffer);
 
-  unsigned int pointer2 = make_pointer(&root);
-  // append_dir(&root, FS_SIZE, pointer, pointer2, "steven");
-
-  block *dir = find(&root, FS_SIZE, pointer);
-
+  block *header = find(&root, FS_SIZE, 0);
+  print_buf(header->buffer);
   return 0;
 }
