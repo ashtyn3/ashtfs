@@ -1,3 +1,4 @@
 #pragma once
 
-#define FS_SIZE 10
+#define FS_SIZE 8
+#define IMG_PATH ""
