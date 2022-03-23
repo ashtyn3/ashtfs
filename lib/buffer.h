@@ -4,4 +4,4 @@
 
 void print_buf(const int buf[]);
 
-char *get_name(const char buf[]);
+char *get_name(const int buf[]);
