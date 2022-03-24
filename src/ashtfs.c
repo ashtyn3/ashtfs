@@ -9,9 +9,12 @@ int main()
 	int loc = make_pointer(&root);
 	alloc_dir(&root, FS_SIZE, loc, "/");
 
-	append_dir(&root, FS_SIZE, loc, 3, "/");
-	//block *dir = find(&root, FS_SIZE, loc);
-	//print_buf(dir->buffer);
+	block *b = alloc_file(&root, FS_SIZE, "hi", "Hello, world!");
+	write_block(&root, b);
+
+	append_dir(&root, FS_SIZE, loc, b->start, "hi");
+
+	block *dir = find(&root, FS_SIZE, loc);
 
 	//block *header = find(&root, FS_SIZE, 0);
 	//print_buf(header->buffer);
