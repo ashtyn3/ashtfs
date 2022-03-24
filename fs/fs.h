@@ -21,7 +21,10 @@ drive init(unsigned int, char *img);
 block *find(drive *, unsigned int, int);
 
 int alloc_dir(drive *, unsigned int, int, const char[]);
+block *alloc_file(drive *root, unsigned int size, const char name[],
+		  const char content[]);
 int make_pointer(drive *);
+int *get_pointers(drive *root, const int start, const int buf[], int *pointers);
 int append_dir(drive *root, unsigned int size, int dir_start, int item_start,
 	       const char name[]);
 
