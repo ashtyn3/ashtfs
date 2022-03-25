@@ -13,7 +13,7 @@ The disk can be compared to a flat array of blocks. Each block has the following
   ^ ^^^^^ ^ ^^^^^ ^^^^^^^^^^^^^^^^^
   a   b   c   d           e
 ```
-- a     (int): the 0th bit, or the index bit, stores the index of the current block.
+- a     (int): The 0th bit, or the index bit, stores the index of the current block.
 - b  (int[3]): 3 integers that act as pointers to the extending blocks.
 - c     (int): this stores the length of the name of the file or directory allocated to that block.
 - d (uint8[]): This is a series of 8 bit unsigned integers, which form the actual name of the file or directory.
