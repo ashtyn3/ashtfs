@@ -21,4 +21,4 @@ The disk can be compared to a flat array of blocks. Each block has the following
 
 
 **Extending blocks** = Blocks that store chunks of files or directories that were too large to fit in one block.    
-**Pointers**         = indexes to the beginning of blocks in the file system.
+**Pointers**         = An integer that represents the beginning index of blocks in the file system.
