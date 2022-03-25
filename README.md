@@ -20,5 +20,5 @@ The disk can be compared to a flat array of blocks. Each block has the following
 - e   (int[]): This is the file bitmap or the actual content of the file.
 
 
-**Extending blocks** = Blocks that store chunks of files or directories that were too large to fit in one block.
+**Extending blocks** = Blocks that store chunks of files or directories that were too large to fit in one block.    
 **Pointers**         = indexes to the beginning of blocks in the file system.
