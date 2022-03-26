@@ -8,3 +8,4 @@ bazel-ashtfs
 
 *.img
 __pycache__/
+config.h

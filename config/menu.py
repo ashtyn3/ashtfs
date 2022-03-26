@@ -31,7 +31,7 @@ choices = {
       },
 }
 
-answers = ["\n"]
+answers = ["#pragma once\n"]
 
 console = Console()
 
