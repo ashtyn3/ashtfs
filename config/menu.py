@@ -4,7 +4,7 @@ from time import sleep
 from rich.pretty import Pretty
 import sys
 import os
-from os.path import exists
+from os.path import isdir 
 import mmap
 
 def clear_last_line():
@@ -31,34 +31,19 @@ choices = {
       },
 }
 
-answers = ["#pragma once\n"]
-
 console = Console()
 
+
 def findPath(targetFile):
-    exist = exists(targetFile)
+    exist = isdir(targetFile)
+
     if not exist:
         os.chdir("..")
         findPath(targetFile)
-    return os.path.abspath(".")
-
-def remove_dup():
-    res = []
-    names = []
-    lines = []
-    for i,item in enumerate(answers):
-        line = str.split(" ")
-        if len(line) >= 2:
-            if line[1] not in names:
-                names.append(line[1])
-                res.append(i)
-    for index in res:
-        lines.append(res[index])
-
-    return lines
+    return "."
 
 def make_macros():
-    macros = []
+    macros = ["#pragma once"]
     for key in choices:
         choice = choices[key]
         if choice["value"] != "":
@@ -67,8 +52,7 @@ def make_macros():
 
 def exit_save():
     clear_last_line()
-    base = findPath("WORKSPACE")
-    answers = remove_dup()
+    base = findPath("fs")
     f = open(base+"/fs/config.h", "w")
     f.write("\n".join(make_macros()))
     f.close()
