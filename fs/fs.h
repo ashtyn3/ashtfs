@@ -25,6 +25,9 @@ block *alloc_file(drive *root, unsigned int size, const char name[],
 		  const char content[]);
 int make_pointer(drive *);
 int *get_pointers(drive *root, const int start, const int buf[], int *pointers);
+int *get_loc_pointers(drive *root, const int start, const int buf[],
+		      int *pointers);
+int get_aval_block(drive *root, const int start);
 int append_dir(drive *root, unsigned int size, int dir_start, int item_start,
 	       const char name[]);
 
