@@ -2,22 +2,33 @@
 #include "../fs/fs.h"
 #include "../lib/buffer.h"
 
+static char *rand_string(char *str, size_t size)
+{
+	const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK";
+	if (size) {
+		--size;
+		for (size_t n = 0; n < size; n++) {
+			int key = rand() % (int)(sizeof charset - 1);
+			str[n] = charset[key];
+		}
+		str[size] = '\0';
+	}
+	return str;
+}
+
 int main()
 {
 	drive root = init(FS_SIZE, IMG_PATH);
 
-	int loc = make_pointer(&root);
-	alloc_dir(&root, FS_SIZE, loc, "/");
+	//int loc = make_pointer(&root);
+	//alloc_dir(&root, FS_SIZE, loc, "/");
 
-	block *b = alloc_file(&root, FS_SIZE, "hi", "Hello, world!");
-	write_block(&root, b);
+	char *content = (char *)malloc(4011 * sizeof(char));
+	rand_string(content, 4010);
+	block *b = alloc_file(&root, FS_SIZE, "hi", content);
 
-	append_dir(&root, FS_SIZE, loc, b->start, "hi");
-
-	block *dir = find(&root, FS_SIZE, loc);
-
-	//block *header = find(&root, FS_SIZE, 0);
-	//print_buf(header->buffer);
+	block *idk = find(&root, FS_SIZE, 2);
+	print_buf(idk->buffer);
 
 	return 0;
 }
