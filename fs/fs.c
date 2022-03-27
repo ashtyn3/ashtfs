@@ -46,8 +46,12 @@ drive init(unsigned int size, char *img)
 void write_block(drive *head, block *f)
 {
 	FILE *ptr = fopen(head->path, "r+b");
+	if (NULL == ptr) {
+		print_fatal("Failed to open image");
+	}
 	fseek(ptr, f->start * 4000, SEEK_SET);
-	fwrite(f->buffer, sizeof(int), sizeof(f->buffer), ptr);
+	fwrite(f->buffer, 1, 4000, ptr);
+	fclose(ptr);
 }
 
 void update_header(drive *root)
@@ -99,12 +103,10 @@ int alloc_dir(drive *root, unsigned int size, int start, const char name[])
 block *alloc_file(drive *root, unsigned int size, const char name[],
 		  const char content[])
 {
-	print_warn("Temporary allocation");
-	print_info(
-		"Please use write_block(drive* head, block* f) to allocate block.");
-	int start = make_pointer(root);
 	int buffer[4000];
 
+	int start = make_pointer(root);
+	update_header(root);
 	buffer[0] = start;
 	buffer[4] = strlen(name);
 
@@ -117,20 +119,69 @@ block *alloc_file(drive *root, unsigned int size, const char name[],
 
 	int cont_size = strlen(content);
 
+	srand(time(NULL));
 	if (cont_size > remaining) {
-		print_warn("NOT IMPLEMENTED");
-		int chunk_amt = floor(cont_size / remaining);
-		for (int i = 0; i < chunk_amt; i++) {
-			int start = i * remaining;
-			int end = start + remaining - 1;
-			if (i == chunk_amt - 1) {
-				end = strlen(content) - 1;
-			}
+		int left = cont_size - remaining;
+		int end_i = cont_size - (left + 1);
+		for (int i = 0; i < end_i; i++) {
+			buffer[i + 5 + offset + 1] = content[i];
+		}
 
-			for (int i = start; i <= end; i++) {
-				printf("%d ", content[i]);
+		char *chunk = (char *)malloc(left * sizeof(char));
+		for (int i = 0; i < left; i++) {
+			chunk[i] = content[end_i + 1 + i];
+		}
+		int *block_ptr = (int *)malloc(3 * sizeof(int));
+		get_loc_pointers(root, start, buffer, block_ptr);
+
+		int index = -1;
+		for (int i = 0; i < 3; i++) {
+			if (block_ptr[i] == 0) {
+				index = i + 1;
+				break;
 			}
-			printf("\n");
+		} // find zero pointers in current block
+
+		block *writing_block = (block *)malloc(sizeof(block));
+		if (index == -1) { // if no zero pointers
+			print_info("No non nil pointers");
+			int writable_index[3];
+			for (int i = 0; i < 3; i++) {
+				int addr = get_aval_block(root, block_ptr[i]);
+				writable_index[i] = addr;
+			}
+			index = rand() % 2 + 0;
+			// write pointer to random index
+			memcpy(writing_block,
+			       find(root, FS_SIZE, writable_index[index]),
+			       sizeof(block));
+		} else {
+			int ptr = make_pointer(root);
+			block *temp = find(root, FS_SIZE, ptr);
+			memcpy(writing_block, temp, sizeof(block));
+			memcpy(writing_block->buffer, buffer,
+			       (5 + offset) * sizeof(int));
+			writing_block->buffer[0] = ptr;
+		}
+
+		if (writing_block->buffer[3998] != 0) {
+			print_info("extending double pointer tree");
+			int *block_ptrs = (int *)malloc(3 * sizeof(int));
+			get_loc_pointers(root, writing_block->start,
+					 writing_block->buffer, block_ptr);
+			int index = 0;
+			for (int i = 0; i < 3; i++) {
+				if (block_ptrs[i] == 0) {
+					index = i;
+					break;
+				}
+			}
+			update_header(root);
+			block *cont = alloc_file(root, FS_SIZE, name, chunk);
+			buffer[index] = cont->start;
+		} else {
+			block *cont = alloc_file(root, FS_SIZE, name, chunk);
+			buffer[index] = cont->start;
 		}
 	} else {
 		int offset = 0;
@@ -141,9 +192,10 @@ block *alloc_file(drive *root, unsigned int size, const char name[],
 	}
 
 	block *t_block = (block *)malloc(sizeof(block));
-	memcpy(t_block, buffer, 4000);
+	memcpy(t_block->buffer, buffer, 4000);
 	t_block->start = start;
-
+	write_block(root, t_block);
+	update_header(root);
 	return t_block;
 }
 
@@ -231,6 +283,28 @@ int *get_pointers(drive *root, const int start, const int buf[], int *pointers)
 		get_pointers(root, addr, t_block->buffer, pointers);
 	}
 	return pointers;
+}
+int *get_loc_pointers(drive *root, const int start, const int buf[],
+		      int *pointers)
+{
+	for (int i = 0; i < 3; i++) {
+		int addr = buf[i + 1];
+		pointers[i] = addr;
+	}
+	return pointers;
+}
+
+int get_aval_block(drive *root, const int start)
+{
+	block *b = find(root, FS_SIZE, start);
+	int *ptr = (int *)malloc(2 * sizeof(int));
+	get_loc_pointers(root, start, b->buffer, ptr);
+	print_buf(ptr);
+	if (ptr[3] == 0) {
+		return start;
+	} else {
+		get_aval_block(root, start);
+	}
 }
 // TODO: implement write disk function.
 //   - Writes dirty blocks to img filesystem.
