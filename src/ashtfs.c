@@ -27,7 +27,7 @@ int main()
 	rand_string(content, 4010);
 	block *b = alloc_file(&root, FS_SIZE, "hi", content);
 
-	block *idk = find(&root, FS_SIZE, 2);
+	block *idk = find(&root, FS_SIZE, 1);
 	print_buf(idk->buffer);
 
 	return 0;
