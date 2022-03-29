@@ -87,6 +87,7 @@ int alloc_dir(drive *root, unsigned int size, int start, const char name[])
 		print_fatal(msg);
 	}
 	dir_block->buffer[0] = start;
+	dir_block->buffer[1] = (int)time(NULL);
 	dir_block->buffer[HEAD_SIZE - 1] = strlen(name);
 
 	int offset = 0;
