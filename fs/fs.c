@@ -1,5 +1,6 @@
 #include "fs.h"
 #include "config.h"
+#include "fs_constants.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,12 +11,12 @@
 // [index or 0, pointer bit, pointer bit, pointer bit, name length, name..., file bitmap]
 block *find(drive *head, unsigned int size, int start)
 {
-	int buffer[4000];
+	int buffer[BLK_SIZE];
 
 	FILE *ptr = fopen(head->path, "rb");
 
 	if (start != 0) {
-		fseek(ptr, start * 4000, SEEK_SET);
+		fseek(ptr, start * BLK_SIZE, SEEK_SET);
 	}
 
 	fread(buffer, sizeof(buffer), 1, ptr);
@@ -32,8 +33,8 @@ drive init(unsigned int size, char *img)
 {
 	drive disk = { .path = img };
 
-	int buffer[FS_SIZE * 4000];
-	buffer[1] = FS_SIZE * 4000;
+	int buffer[FS_SIZE * BLK_SIZE];
+	buffer[1] = FS_SIZE * BLK_SIZE;
 	buffer[2] = 1;
 
 	FILE *write_ptr;
@@ -49,8 +50,8 @@ void write_block(drive *head, block *f)
 	if (NULL == ptr) {
 		print_fatal("Failed to open image");
 	}
-	fseek(ptr, f->start * 4000, SEEK_SET);
-	fwrite(f->buffer, 1, 4000, ptr);
+	fseek(ptr, f->start * BLK_SIZE, SEEK_SET);
+	fwrite(f->buffer, 1, BLK_SIZE, ptr);
 	fclose(ptr);
 }
 
@@ -86,11 +87,11 @@ int alloc_dir(drive *root, unsigned int size, int start, const char name[])
 		print_fatal(msg);
 	}
 	dir_block->buffer[0] = start;
-	dir_block->buffer[4] = strlen(name);
+	dir_block->buffer[HEAD_SIZE - 1] = strlen(name);
 
 	int offset = 0;
-	for (int i = 0; i < dir_block->buffer[4]; i++) {
-		dir_block->buffer[i + 5] = name[offset];
+	for (int i = 0; i < dir_block->buffer[HEAD_SIZE - 1]; i++) {
+		dir_block->buffer[i + HEAD_SIZE] = name[offset];
 		offset++;
 	}
 
@@ -103,19 +104,19 @@ int alloc_dir(drive *root, unsigned int size, int start, const char name[])
 block *alloc_file(drive *root, unsigned int size, const char name[],
 		  const char content[])
 {
-	int buffer[4000];
+	int buffer[BLK_SIZE];
 
 	int start = make_pointer(root);
 	update_header(root);
 	buffer[0] = start;
-	buffer[4] = strlen(name);
+	buffer[HEAD_SIZE - 1] = strlen(name);
 
 	int offset = 0;
-	for (int i = 0; i < buffer[4]; i++) {
-		buffer[i + 5] = name[offset];
+	for (int i = 0; i < buffer[HEAD_SIZE - 1]; i++) {
+		buffer[i + HEAD_SIZE] = name[offset];
 		offset++;
 	}
-	int remaining = 4000 - 5 - offset;
+	int remaining = BLK_SIZE - HEAD_SIZE - offset;
 
 	int cont_size = strlen(content);
 
@@ -124,43 +125,40 @@ block *alloc_file(drive *root, unsigned int size, const char name[],
 		int left = cont_size - remaining;
 		int end_i = cont_size - (left + 1);
 		for (int i = 0; i < end_i; i++) {
-			buffer[i + 5 + offset + 1] = content[i];
+			buffer[i + HEAD_SIZE + offset + 1] = content[i];
 		}
 
 		char *chunk = (char *)malloc(left * sizeof(char));
 		for (int i = 0; i < left; i++) {
 			chunk[i] = content[end_i + 1 + i];
 		}
-		int *block_ptr = (int *)malloc(3 * sizeof(int));
+		int *block_ptr = (int *)malloc(2 * sizeof(int));
 		get_loc_pointers(root, start, buffer, block_ptr);
 
-		int index = -1;
-		for (int i = 0; i < 3; i++) {
-			if (block_ptr[i] == 0) {
-				index = i + 1;
-				break;
-			}
-		} // find zero pointers in current block
+		int index = 2;
+		// for (int i = 0; i < 2; i++) {
+		// 	if (block_ptr[i] == 0) {
+		// 		index = i + 1;
+		// 		break;
+		// 	}
+		// } // find zero pointers in current block
+		if (block_ptr[index - 1] != 0) {
+			index = -1;
+		}
 
 		block *writing_block = (block *)malloc(sizeof(block));
 		if (index == -1) { // if no zero pointers
 			print_info("No non nil pointers");
-			int writable_index[3];
-			for (int i = 0; i < 3; i++) {
-				int addr = get_aval_block(root, block_ptr[i]);
-				writable_index[i] = addr;
-			}
-			index = rand() % 2 + 0;
+			int addr = get_aval_block(root, block_ptr[index]);
 			// write pointer to random index
-			memcpy(writing_block,
-			       find(root, FS_SIZE, writable_index[index]),
+			memcpy(writing_block, find(root, FS_SIZE, addr),
 			       sizeof(block));
 		} else {
 			int ptr = make_pointer(root);
 			block *temp = find(root, FS_SIZE, ptr);
 			memcpy(writing_block, temp, sizeof(block));
 			memcpy(writing_block->buffer, buffer,
-			       (5 + offset) * sizeof(int));
+			       (HEAD_SIZE + offset) * sizeof(int));
 			writing_block->buffer[0] = ptr;
 		}
 
@@ -186,13 +184,14 @@ block *alloc_file(drive *root, unsigned int size, const char name[],
 	} else {
 		int offset = 0;
 		for (int i = 0; i < cont_size; i++) {
-			buffer[i + 5 + buffer[4]] = content[offset];
+			buffer[i + HEAD_SIZE + buffer[HEAD_SIZE - 1]] =
+				content[offset];
 			offset++;
 		}
 	}
-
+	buffer[1] = (int)time(NULL);
 	block *t_block = (block *)malloc(sizeof(block));
-	memcpy(t_block->buffer, buffer, 4000);
+	memcpy(t_block->buffer, buffer, BLK_SIZE);
 	t_block->start = start;
 	write_block(root, t_block);
 	update_header(root);
@@ -205,7 +204,7 @@ int append_dir(drive *root, unsigned int size, int dir_start, int item_start,
 	block *base = find(root, FS_SIZE, dir_start);
 
 	if (base->buffer[1] != 0) {
-		int *ptr = (int *)malloc(4000 * sizeof(int));
+		int *ptr = (int *)malloc(BLK_SIZE * sizeof(int));
 
 		get_pointers(root, dir_start, base->buffer, ptr);
 		int end = sizeof(&ptr) / sizeof(ptr[0]) - 1;
@@ -224,12 +223,12 @@ int append_dir(drive *root, unsigned int size, int dir_start, int item_start,
 	}
 
 	int id = base->buffer[0];
-	int name_len = base->buffer[4];
+	int name_len = base->buffer[HEAD_SIZE - 1];
 
 	if (base->buffer[3999] != 0) {
 		int pointer = make_pointer(root);
 		block *t_block = (block *)malloc(sizeof(block));
-		memcpy(t_block, base->buffer, 5 + name_len);
+		memcpy(t_block, base->buffer, HEAD_SIZE + name_len);
 		t_block->buffer[0] = pointer;
 		t_block->start = pointer;
 
@@ -249,62 +248,6 @@ int append_dir(drive *root, unsigned int size, int dir_start, int item_start,
 	}
 	// FINISH IMPLEMENTING
 	return 0;
-}
-
-int make_pointer(drive *root)
-{
-	int aval;
-	FILE *ptr = fopen(root->path, "r+b");
-	while (1) {
-		block *head = find(root, FS_SIZE, 0);
-		block *temp = find(root, FS_SIZE, head->buffer[2]);
-		if (temp->buffer[0] == 0) {
-			aval = temp->start;
-			break;
-		} else {
-			head->buffer[2] = head->buffer[2] + 1;
-			fwrite(head->buffer, sizeof(int), sizeof(head->buffer),
-			       ptr);
-		}
-	}
-	fclose(ptr);
-	return aval;
-}
-int *get_pointers(drive *root, const int start, const int buf[], int *pointers)
-{
-	int pointer_i = 0;
-	for (int i = 1; i < 4; i++) {
-		int addr = buf[i];
-		if (addr == 0) {
-			break;
-		}
-		pointers[pointer_i] = addr;
-		block *t_block = find(root, FS_SIZE, addr);
-		get_pointers(root, addr, t_block->buffer, pointers);
-	}
-	return pointers;
-}
-int *get_loc_pointers(drive *root, const int start, const int buf[],
-		      int *pointers)
-{
-	for (int i = 0; i < 3; i++) {
-		int addr = buf[i + 1];
-		pointers[i] = addr;
-	}
-	return pointers;
-}
-
-int get_aval_block(drive *root, const int start)
-{
-	block *b = find(root, FS_SIZE, start);
-	int *ptr = (int *)malloc(2 * sizeof(int));
-	get_loc_pointers(root, start, b->buffer, ptr);
-	print_buf(ptr);
-	if (ptr[3] == 0) {
-		return start;
-	} else {
-		get_aval_block(root, start);
-	}
 }
 // TODO: implement write disk function.
 //   - Writes dirty blocks to img filesystem.
